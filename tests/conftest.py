@@ -469,7 +469,8 @@ class SampleInputs:
                     "alpha": 0.58,
                     "beta": 0.077,
                     "ka": 0.38,
-                    "kb": 0.004
+                    "kb": 0.004,
+                    "wec": 1.0
                 },
                 "jensen": {
                     "we": 0.05,

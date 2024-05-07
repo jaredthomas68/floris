@@ -1,5 +1,6 @@
 
 import numpy as np
+from matplotlib import pyplot as plt
 
 from floris.core import (
     average_velocity,
@@ -1008,3 +1009,112 @@ def test_full_flow_solver(sample_inputs_fixture):
     velocities = floris.flow_field.u_sorted
 
     assert_results_arrays(velocities, full_flow_baseline)
+
+def test_regression_wec(sample_inputs_fixture):
+    """
+    Tandem turbines with wec > 1
+    """
+    sample_inputs_fixture.core["wake"]["model_strings"]["velocity_model"] = VELOCITY_MODEL
+    sample_inputs_fixture.core["wake"]["model_strings"]["deflection_model"] = DEFLECTION_MODEL
+
+    # test for when turbines are in line
+    n_turbines = len(sample_inputs_fixture.core["farm"]["layout_x"])
+    rotor_diameter = sample_inputs_fixture.core["farm"]["turbine_type"][0]["rotor_diameter"]
+    sample_inputs_fixture.core["flow_field"]["wind_speeds"] = np.array([8.0])
+    sample_inputs_fixture.core["flow_field"]["wind_directions"] = np.array([270.0])
+    sample_inputs_fixture.core["flow_field"]["turbulence_intensities"] = np.array([0.1])
+    
+    turb_3_sweep_y_locations = np.linspace(-2.1, 2.1, 5)*rotor_diameter
+    turb_3_sweep_power = np.zeros((3, len(turb_3_sweep_y_locations)))
+
+    wec_sweep_values = np.array([1.0, 2.0, 3.0])
+
+    for wn, wv in enumerate(wec_sweep_values):
+        sample_inputs_fixture.core["wake"]["wake_velocity_parameters"][VELOCITY_MODEL]["wec"] = wv
+
+        for yn, t3yloc in enumerate(turb_3_sweep_y_locations):
+
+            sample_inputs_fixture.core["farm"]["layout_y"][2] = t3yloc
+
+            floris = Core.from_dict(sample_inputs_fixture.core)
+            floris.initialize_domain()
+            floris.steady_state_atmospheric_condition()
+
+            n_turbines = floris.farm.n_turbines
+            n_findex = floris.flow_field.n_findex
+
+            velocities = floris.flow_field.u
+            air_density = floris.flow_field.air_density
+            yaw_angles = floris.farm.yaw_angles
+            tilt_angles = floris.farm.tilt_angles
+            power_setpoints = floris.farm.power_setpoints
+            awc_modes = floris.farm.awc_modes
+            awc_amplitudes = floris.farm.awc_amplitudes
+            test_results = np.zeros((n_findex, n_turbines, 4))
+
+            farm_avg_velocities = average_velocity(
+                velocities,
+            )
+            farm_cts = thrust_coefficient(
+                velocities,
+                air_density,
+                yaw_angles,
+                tilt_angles,
+                power_setpoints,
+                awc_modes,
+                awc_amplitudes,
+                floris.farm.turbine_thrust_coefficient_functions,
+                floris.farm.turbine_tilt_interps,
+                floris.farm.correct_cp_ct_for_tilt,
+                floris.farm.turbine_type_map,
+                floris.farm.turbine_power_thrust_tables,
+            )
+            farm_powers = power(
+                velocities,
+                air_density,
+                floris.farm.turbine_power_functions,
+                yaw_angles,
+                tilt_angles,
+                power_setpoints,
+                awc_modes,
+                awc_amplitudes,
+                floris.farm.turbine_tilt_interps,
+                floris.farm.turbine_type_map,
+                floris.farm.turbine_power_thrust_tables,
+            )
+            farm_axial_inductions = axial_induction(
+                velocities,
+                air_density,
+                yaw_angles,
+                tilt_angles,
+                power_setpoints,
+                awc_modes,
+                awc_amplitudes,
+                floris.farm.turbine_axial_induction_functions,
+                floris.farm.turbine_tilt_interps,
+                floris.farm.correct_cp_ct_for_tilt,
+                floris.farm.turbine_type_map,
+                floris.farm.turbine_power_thrust_tables,
+            )
+            for i in range(n_findex):
+                for j in range(n_turbines):
+                    test_results[i, j, 0] = farm_avg_velocities[i, j]
+                    test_results[i, j, 1] = farm_cts[i, j]
+                    test_results[i, j, 2] = farm_powers[i, j]
+                    test_results[i, j, 3] = farm_axial_inductions[i, j]
+
+            if DEBUG:
+                print_test_values(
+                    farm_avg_velocities,
+                    farm_cts,
+                    farm_powers,
+                    farm_axial_inductions,
+                    max_findex_print=4,
+                )
+
+            turb_3_sweep_power[wn][yn] = farm_powers[0][2]
+            
+    for wn, wv in enumerate(wec_sweep_values):
+        if wn == 0: continue
+        for yn, t3yloc in enumerate(turb_3_sweep_y_locations):
+            assert turb_3_sweep_power[wn][yn] < turb_3_sweep_power[wn-1][yn]
