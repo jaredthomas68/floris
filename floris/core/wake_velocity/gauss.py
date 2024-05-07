@@ -26,7 +26,7 @@ class GaussVelocityDeficit(BaseModel):
     beta: float = field(default=0.077)
     ka: float = field(default=0.38)
     kb: float = field(default=0.004)
-    wec: float = field(defaul=1.0)
+    wec: float = field(default=1.0)
 
     def prepare_function(
         self,
@@ -235,6 +235,6 @@ def mask_upstream_wake(mesh_y_rotated, x_coord_rotated, y_coord_rotated, turbine
     return xR, yR
 
 
-def gaussian_function(C, r, n, sigma, wec):
-    result = ne.evaluate("C * exp(-1 * r ** n / (2 * (wec * sigma) ** 2))")
+def gaussian_function(C, r, n, sigma):
+    result = ne.evaluate("C * exp(-1 * r ** n / (2 * sigma ** 2))")
     return result
