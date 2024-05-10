@@ -1,6 +1,6 @@
 
 import numpy as np
-from matplotlib import pyplot as plt
+import copy
 
 from floris.core import (
     average_velocity,
@@ -1014,6 +1014,7 @@ def test_regression_wec(sample_inputs_fixture):
     """
     Tandem turbines with wec > 1
     """
+    sample_inputs_fixture = copy.deepcopy(sample_inputs_fixture)
     sample_inputs_fixture.core["wake"]["model_strings"]["velocity_model"] = VELOCITY_MODEL
     sample_inputs_fixture.core["wake"]["model_strings"]["deflection_model"] = DEFLECTION_MODEL
 

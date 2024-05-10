@@ -210,8 +210,8 @@ class FlorisModel(LoggingManager):
         if air_density is not None:
             flow_field_dict["air_density"] = air_density
         if heterogeneous_inflow_config is not None:
-            flow_field_dict["heterogeneous_inflow_config"] = heterogeneous_inflow_config
-
+            flow_field_dict["heterogeneous_inflow_config"] = heterogeneous_inflow_configif 
+        
         ## Farm
         if layout_x is not None:
             farm_dict["layout_x"] = layout_x
